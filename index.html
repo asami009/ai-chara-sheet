@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI秘書キャラクターシート</title>
+<meta name="description" content="8つの質問に答えるだけで、自分だけのAI秘書の人格設定ができあがります。書いた内容はそのままAIに貼り付けられます。">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>📝</text></svg>">
+<style>
+  :root {
+    /* 生成りの紙。事務書類の白ではなく、机に置いた1枚の紙の色 */
+    --paper: #F6F1E7;
+    --paper-2: #EDE5D6;
+    --card: #FFFCF6;
+    --ink: #2B2620;
+    --ink-2: #5D5449;
+    /* ink-3 は記入例に使う色。4.5:1 を満たすまで暗くした（旧 #96897A は 3.33 で不合格） */
+    --ink-3: #756A5C;
+    --rule: #DED3C0;
+    /* アクセントは1色だけ。--blue は主役の濃い墨、--red がその1色 */
+    --blue: #33302A;
+    --red: #B4472E;
+    --field: #FFFFFF;
+    /* 入力欄の枠。3:1 を満たすまで濃くした（旧 #D8CCB8 は 1.55 で不合格＝どこに書くか分からない） */
+    --field-line: #9C8A6D;
+    --shadow: 0 1px 2px rgba(72,54,30,.05), 0 6px 18px -8px rgba(72,54,30,.16);
+    --shadow-focus: 0 2px 4px rgba(72,54,30,.07), 0 16px 34px -16px rgba(72,54,30,.34);
+
+    --r-out: 16px;
+    --r-in: 8px;
+    --r-tight: 5px;
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #17140F;
+      --paper-2: #211C15;
+      --card: #221D16;
+      --ink: #F0E8DA;
+      --ink-2: #BCB0A0;
+      --ink-3: #9A8E7D;
+      --rule: #3A3227;
+      --blue: #F0E8DA;
+      --red: #E08661;
+      --field: #1A1610;
+      --field-line: #6E6152;
+      --shadow: 0 1px 2px rgba(0,0,0,.5), 0 8px 24px rgba(0,0,0,.42);
+      --shadow-focus: 0 2px 4px rgba(0,0,0,.55), 0 18px 38px -14px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #17140F; --paper-2: #211C15; --card: #221D16;
+    --ink: #F0E8DA; --ink-2: #BCB0A0; --ink-3: #9A8E7D; --rule: #3A3227;
+    --blue: #F0E8DA; --red: #E08661; --field: #1A1610; --field-line: #6E6152;
+    --shadow: 0 1px 2px rgba(0,0,0,.5), 0 8px 24px rgba(0,0,0,.42);
+    --shadow-focus: 0 2px 4px rgba(0,0,0,.55), 0 18px 38px -14px rgba(0,0,0,.6);
+  }
+  :root[data-theme="light"] {
+    --paper: #F6F1E7; --paper-2: #EDE5D6; --card: #FFFCF6;
+    --ink: #2B2620; --ink-2: #5D5449; --ink-3: #756A5C; --rule: #DED3C0;
+    --blue: #33302A; --red: #B4472E; --field: #FFFFFF; --field-line: #9C8A6D;
+    --shadow: 0 1px 2px rgba(72,54,30,.05), 0 6px 18px -8px rgba(72,54,30,.16);
+    --shadow-focus: 0 2px 4px rgba(72,54,30,.07), 0 16px 34px -16px rgba(72,54,30,.34);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Hiragino Maru Gothic ProN", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.8;
+    font-size: 16px;
+    text-wrap: pretty;
+  }
+  /* 紙の繊維。のっぺりしたデジタル面をやめる */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    opacity: .04;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23p)'/%3E%3C/svg%3E");
+  }
+  .sheet {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 44px 20px 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    position: relative;
+    z-index: 2;
+  }
+
+  /* header — 枠で囲わず、罫と余白で見出しを立てる */
+  .masthead {
+    padding: 0 4px 26px;
+    margin-bottom: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .masthead .kicker {
+    font-size: 11px;
+    letter-spacing: .2em;
+    color: var(--red);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  /* ラベルの左に短い罫を引いて、章の始まりを示す */
+  .masthead .kicker::before {
+    content: "";
+    width: 26px;
+    height: 2px;
+    background: var(--red);
+    flex: none;
+  }
+  h1 {
+    margin: 0;
+    /* 下限を26pxに。28pxだとiPhone幅で「AI秘書キャラ／クターシート」と
+       語の途中で割れて商品の顔として見苦しかった */
+    font-size: clamp(26px, 6.4vw, 40px);
+    font-weight: 800;
+    letter-spacing: -.025em;
+    line-height: 1.3;
+    color: var(--blue);
+    text-wrap: balance;
+  }
+  .masthead p {
+    margin: 2px 0 0;
+    font-size: 15px;
+    line-height: 1.85;
+    color: var(--ink-2);
+    max-width: 40ch;
+  }
+
+  /* sections — 枠線をやめ、紙の色差と影だけで浮かせる */
+  .q {
+    background: var(--card);
+    border: 1px solid transparent;
+    border-radius: var(--r-out);
+    padding: 22px 24px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: var(--shadow);
+    transition:
+      box-shadow 260ms var(--ease),
+      transform 260ms var(--ease),
+      border-color 260ms var(--ease);
+  }
+  /* 記入中の問だけが手前に来る。上から順に埋める体験の道しるべ */
+  .q:focus-within {
+    box-shadow: var(--shadow-focus);
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--red) 28%, transparent);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .q, .q:focus-within { transition: none; transform: none; }
+  }
+
+  /* ★設計書の「抽象語の禁止＝セリフを書かせる」が商品の肝。
+     8問が全部同じ見た目だと、そこが平場に埋もれる。ここだけ紙を一段持ち上げる */
+  .q.q-key {
+    background:
+      linear-gradient(color-mix(in srgb, var(--red) 4%, transparent), transparent 120px),
+      var(--card);
+    box-shadow:
+      0 1px 2px rgba(72,54,30,.06),
+      0 10px 26px -12px rgba(140,50,25,.28);
+    border-color: color-mix(in srgb, var(--red) 22%, transparent);
+  }
+  .q.q-key .q-title::after {
+    content: "いちばん効くところ";
+    display: inline-block;
+    margin-left: 10px;
+    padding: 3px 9px;
+    border-radius: var(--r-tight);
+    background: color-mix(in srgb, var(--red) 12%, transparent);
+    color: var(--red);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    vertical-align: 3px;
+    white-space: nowrap;
+  }
+
+  .q-head { display: flex; gap: 13px; align-items: baseline; flex-wrap: wrap; }
+
+  /* 記入すると番号にチェックがつく。8問のどこまで埋めたかが、
+     スクロールしながら分かる（紙と違って全体を一覧できないため） */
+  .q:has(input[type="text"]:not(:placeholder-shown)) .num::after,
+  .q:has(textarea:not(:placeholder-shown)) .num::after,
+  .q:has(input[type="radio"]:checked) .num::after {
+    content: "✓";
+    margin-left: 7px;
+    color: var(--red);
+    font-size: 15px;
+    opacity: .9;
+  }
+  /* 丸バッジをやめた通し番号。丸ゴシックの太字で軽さを出す */
+  .num {
+    flex: none;
+    width: auto; height: auto;
+    border-radius: 0;
+    background: none;
+    color: var(--red);
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: .02em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .num::before { content: "0"; opacity: .38; }
+
+  .q-title { margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -.015em; }
+  .q-help {
+    margin: 0;
+    font-size: 14.5px;
+    color: var(--ink-2);
+    line-height: 1.85;
+    max-width: 40ch;
+  }
+  .eg {
+    font-size: 13.5px;
+    color: var(--ink-3);
+    border-left: 3px solid color-mix(in srgb, var(--red) 45%, transparent);
+    padding: 5px 0 5px 13px;
+    line-height: 1.8;
+  }
+  .eg b { color: var(--red); font-weight: 700; font-style: normal; }
+
+  input[type="text"], textarea {
+    font: inherit;
+    /* ★16px未満にしないこと。iOS Safari は 16px 未満の入力欄にフォーカスすると
+       画面を自動で拡大する。8問ぶん拡大→戻すを繰り返すことになり、スマホ参加者の
+       いちばんの離脱要因になる（2026-08-12 修正） */
+    font-size: 16px;
+    width: 100%;
+    padding: 13px 15px;
+    background: var(--field);
+    border: 1px solid var(--field-line);
+    border-radius: var(--r-in);
+    color: var(--ink);
+    resize: vertical;
+    transition: border-color 200ms var(--ease), box-shadow 200ms var(--ease);
+  }
+  input[type="text"]:hover, textarea:hover { border-color: var(--ink-2); }
+  input[type="text"]:focus, textarea:focus {
+    border-color: var(--red);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--red) 14%, transparent);
+  }
+  input[type="text"]::placeholder, textarea::placeholder { color: var(--ink-3); }
+  input[type="text"]:focus-visible, textarea:focus-visible,
+  .opt:focus-within, button:focus-visible {
+    outline: 2px solid var(--red);
+    outline-offset: 2px;
+  }
+
+  .opts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .opt {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 15px;
+    border: 1px solid var(--field-line);
+    border-radius: var(--r-in);
+    background: var(--field);
+    cursor: pointer;
+    font-size: 16px;
+    min-height: 44px;
+    transition:
+      border-color 200ms var(--ease),
+      background 200ms var(--ease),
+      transform 200ms var(--ease);
+  }
+  .opt input { position: absolute; opacity: 0; pointer-events: none; }
+  .opt:hover { border-color: var(--ink-3); transform: translateY(-1px); }
+  .opt:active { transform: translateY(0); }
+  .opt:has(input:checked) {
+    border-color: var(--red);
+    background: color-mix(in srgb, var(--red) 8%, var(--field));
+    color: var(--red);
+    font-weight: 700;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 30%, transparent);
+  }
+  .opt:has(input:checked)::before {
+    content: "✓";
+    color: var(--red);
+    font-weight: 700;
+  }
+
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+  @media (max-width: 520px) { .two { grid-template-columns: 1fr; } }
+  .sub-label { font-size: 12.5px; letter-spacing: .06em; color: var(--ink-2); font-weight: 700; display: block; margin-bottom: 7px; }
+
+  /* output — ここが山場なので、唯一のアクセント色を主役ボタンに使う */
+  .make {
+    font: inherit;
+    font-size: 16.5px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    padding: 18px;
+    margin-top: 8px;
+    border: none;
+    border-radius: var(--r-out);
+    background: var(--red);
+    color: #FFF8F2;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(140,50,25,.16), 0 14px 30px -14px rgba(140,50,25,.6);
+    transition: transform 200ms var(--ease), box-shadow 200ms var(--ease), filter 200ms var(--ease);
+  }
+  .make:hover {
+    filter: brightness(1.06);
+    transform: translateY(-2px);
+    box-shadow: 0 3px 6px rgba(140,50,25,.2), 0 20px 40px -16px rgba(140,50,25,.7);
+  }
+  .make:active { transform: translateY(0) scale(0.995); }
+
+  .out {
+    display: none;
+    flex-direction: column;
+    gap: 13px;
+    border: 1px solid color-mix(in srgb, var(--red) 40%, transparent);
+    border-radius: var(--r-out);
+    background: var(--card);
+    padding: 22px 24px;
+    box-shadow: var(--shadow-focus);
+  }
+  .out[data-on="true"] { display: flex; }
+  .out h2 {
+    margin: 0;
+    font-size: 19px;
+    font-weight: 800;
+    color: var(--red);
+    letter-spacing: -.015em;
+  }
+  .out-steps { margin: 0; padding-left: 1.2em; font-size: 14.5px; color: var(--ink-2); line-height: 1.9; }
+  .out-steps li { margin-bottom: 6px; }
+  pre {
+    margin: 0;
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-in);
+    padding: 16px;
+    font-size: 12.5px;
+    line-height: 1.85;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 340px;
+    overflow-y: auto;
+    font-family: "SF Mono", "Menlo", monospace;
+  }
+  .row { display: flex; gap: 9px; flex-wrap: wrap; }
+  .btn {
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    padding: 11px 18px;
+    border-radius: var(--r-in);
+    border: 1px solid var(--field-line);
+    background: transparent;
+    color: var(--ink-2);
+    cursor: pointer;
+    transition: background 200ms var(--ease), border-color 200ms var(--ease), color 200ms var(--ease);
+  }
+  .btn:hover { background: var(--paper-2); border-color: var(--ink-3); color: var(--ink); }
+  .btn.primary {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: var(--card);
+  }
+  .btn.primary:hover { filter: brightness(1.15); color: var(--card); }
+  .saved { font-size: 12px; color: var(--ink-3); align-self: center; }
+
+  footer {
+    font-size: 13px;
+    color: var(--ink-3);
+    line-height: 1.95;
+    border-top: 1px solid var(--rule);
+    padding-top: 18px;
+    margin-top: 10px;
+  }
+
+  @media print {
+    body { background: #fff; }
+    body::before { display: none; }
+    .make, .out, footer, .btn { display: none !important; }
+    .q {
+      break-inside: avoid;
+      box-shadow: none;
+      border: 1px solid #ccc;
+      transform: none;
+    }
+  }
+</style>
+</head>
+<body>
+
+<main class="sheet">
+  <header class="masthead">
+    <span class="kicker">WORKSHEET — AIに、名前をつける。</span>
+    <h1>AI秘書キャラクターシート</h1>
+    <p>上から順に埋めてください。全部埋まったら、いちばん下のボタンで「AIに貼り付ける文章」ができます。手で打ち直す必要はありません。</p>
+  </header>
+
+  <div class="q">
+    <div class="q-head"><span class="num">1</span><h2 class="q-title">名前</h2></div>
+    <p class="q-help">呼びたくなる名前を。かっこよさより、口に出しやすさで選ぶと続きます。</p>
+    <p class="eg">例：<b>ひなた</b>／サク／モモ／ボス</p>
+    <input type="text" id="f-name" placeholder="例：ひなた">
+  </div>
+
+  <div class="q">
+    <div class="q-head"><span class="num">2</span><h2 class="q-title">あなたの呼ばれ方</h2></div>
+    <p class="q-help">このAIから、自分は何と呼ばれたいですか。ここを決めておくと会話が一気に自分のものになります。</p>
+    <p class="eg">例：<b>下の名前＋さん</b>／あだ名／先輩／ママ</p>
+    <input type="text" id="f-call" placeholder="例：ゆきさん">
+  </div>
+
+  <div class="q">
+    <div class="q-head"><span class="num">3</span><h2 class="q-title">話し方</h2></div>
+    <p class="q-help">毎日聞く声です。読んでいて疲れない方を選んでください。</p>
+    <div class="opts" id="f-tone">
+      <label class="opt"><input type="radio" name="tone" value="ていねいな敬語">ていねいな敬語</label>
+      <label class="opt"><input type="radio" name="tone" value="友達みたいなタメ口">友達みたいなタメ口</label>
+      <label class="opt"><input type="radio" name="tone" value="方言まじり">方言まじり</label>
+      <label class="opt"><input type="radio" name="tone" value="短く端的">短く端的</label>
+    </div>
+    <input type="text" id="f-tone-x" placeholder="方言を選んだ人はどこの言葉か／他にあれば自由に（例：広島弁）">
+  </div>
+
+  <div class="q q-key">
+    <div class="q-head"><span class="num">4</span><h2 class="q-title">性格</h2></div>
+    <p class="q-help">いちばん大事なところです。「自分に足りないもの」を選ぶと相棒になります。似た性格を選ぶと、ただの鏡になって助けになりません。</p>
+    <div class="opts" id="f-chara">
+      <label class="opt"><input type="radio" name="chara" value="とにかく褒めて背中を押す">とにかく褒めて背中を押す</label>
+      <label class="opt"><input type="radio" name="chara" value="耳が痛くても本音を言う">耳が痛くても本音を言う</label>
+      <label class="opt"><input type="radio" name="chara" value="落ち着いて淡々と整理する">落ち着いて淡々と整理する</label>
+      <label class="opt"><input type="radio" name="chara" value="明るく元気に盛り上げる">明るく元気に盛り上げる</label>
+    </div>
+    <div>
+      <span class="sub-label">この子が必ず言いそうな一言を、ひとつだけ</span>
+      <p class="q-help" style="margin-bottom:9px">ここが、いちばん効きます。「優しい」「明るい」のような言葉だけだと、AIはどこにでもいる優等生に戻ってしまいます。<b>セリフをひとつ書くだけ</b>で、その子らしさが立ち上がります。</p>
+      <p class="eg">例：<b>「無理すんなよ」</b>／「で、結局どうしたいん？」／「はい、まず深呼吸〜」／「それ、先週も言うとったよ」</p>
+      <input type="text" id="f-serif" placeholder="例：無理すんなよ">
+    </div>
+  </div>
+
+  <div class="q">
+    <div class="q-head"><span class="num">5</span><h2 class="q-title">好きなもの・たとえ話のネタ</h2></div>
+    <p class="q-help">説明がわかりにくいとき、AIはここから例えを持ってきます。自分の好きなものを入れておくと、話がスッと入るようになります。</p>
+    <p class="eg">例：<b>野球</b>／韓国ドラマ／料理／少女漫画</p>
+    <input type="text" id="f-like" placeholder="例：野球、韓国ドラマ">
+  </div>
+
+  <div class="q">
+    <div class="q-head"><span class="num">6</span><h2 class="q-title">あなたの凸凹</h2></div>
+    <p class="q-help">得意なことと、苦手なこと。苦手のほうを、このAIが引き受けます。ここは正直に書くほど効きます。</p>
+    <div class="two">
+      <div>
+        <span class="sub-label">得意・好き</span>
+        <textarea id="f-good" rows="3" placeholder="例：思いついたらすぐ動ける、人と話すのが好き"></textarea>
+      </div>
+      <div>
+        <span class="sub-label">苦手・しんどい</span>
+        <textarea id="f-bad" rows="3" placeholder="例：予定の管理、片付け、細かい確認作業"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="q">
+    <div class="q-head"><span class="num">7</span><h2 class="q-title">明日から任せたい3つ</h2></div>
+    <p class="q-help">仕事のことでなくて構いません。むしろ生活のことのほうが、毎日話しかける理由になります。</p>
+    <p class="eg">例：<b>朝いちばんに今日の予定を教えてもらう</b>／夕飯の献立を決めてもらう／愚痴を聞いてもらう</p>
+    <textarea id="f-tasks" rows="4" placeholder="1.&#10;2.&#10;3."></textarea>
+  </div>
+
+  <div class="q">
+    <div class="q-head"><span class="num">8</span><h2 class="q-title">これはしないでほしい</h2></div>
+    <p class="q-help">言われて嫌なこと、やられたら困ることを先に決めておきます。ここを書いておくと、あとで気まずくなりません。<br><b>されたら嫌なことを、そのまま書いてください。</b>「〜しないで」の形にしなくて大丈夫です。</p>
+    <p class="eg">例：<b>あやまり続ける</b>／むずかしい専門用語を使う／長々と話す</p>
+    <textarea id="f-ng" rows="3" placeholder="例：長々と話す、勝手に決める"></textarea>
+  </div>
+
+  <button class="make" id="make" type="button">貼り付ける文章をつくる</button>
+
+  <section class="out" id="out" aria-live="polite">
+    <h2>できました。あとは貼るだけです。</h2>
+    <ol class="out-steps">
+      <li>下の「コピーする」を押す</li>
+      <li>ChatGPT か Claude を開く</li>
+      <li>入力欄に貼り付けて送信する</li>
+      <li>そのあと <b>「今日ちょっと疲れた」</b> と話しかけてみる<br><span style="color:var(--ink-3)">— さっき、何も設定していないAIに投げたのと同じ一言です。返事を見比べてください。</span></li>
+    </ol>
+    <pre id="outText"></pre>
+    <div class="row">
+      <button class="btn primary" id="copy" type="button">コピーする</button>
+      <button class="btn" id="print" type="button">印刷する</button>
+      <span class="saved" id="saved"></span>
+    </div>
+  </section>
+
+  <footer>
+    書いた内容はこの端末のブラウザにだけ残ります。どこかに送信されることはありません。<br>
+    あとから性格を変えたくなったら、シートを直して、もう一度貼り直せば上書きできます。
+  </footer>
+</main>
+
+<script>
+const KEY = "ai-hisho-sheet-v1";
+const ids = ["f-name","f-call","f-tone-x","f-serif","f-like","f-good","f-bad","f-tasks","f-ng"];
+const $ = id => document.getElementById(id);
+
+function radio(name) {
+  const el = document.querySelector(`input[name="${name}"]:checked`);
+  return el ? el.value : "";
+}
+
+function collect() {
+  const d = {};
+  ids.forEach(i => d[i] = $(i).value.trim());
+  d.tone = radio("tone");
+  d.chara = radio("chara");
+  return d;
+}
+
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(collect())); } catch (e) {}
+}
+
+function restore() {
+  let d;
+  try { d = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { return; }
+  if (!d) return;
+  ids.forEach(i => { if (d[i]) $(i).value = d[i]; });
+  ["tone","chara"].forEach(n => {
+    const el = document.querySelector(`input[name="${n}"][value="${d[n]}"]`);
+    if (el) el.checked = true;
+  });
+}
+
+function build(d) {
+  const name = d["f-name"] || "あなた";
+  const call = d["f-call"] || "わたし";
+  const tone = [d.tone, d["f-tone-x"]].filter(Boolean).join("・") || "ていねいな敬語";
+  const lines = [];
+
+  lines.push(`これから、あなたはわたし専用のAI秘書として話してください。以下の設定を守ってください。`);
+  lines.push(``);
+  lines.push(`【名前】あなたの名前は「${name}」です。`);
+  lines.push(`【わたしの呼び方】わたしのことは「${call}」と呼んでください。`);
+  lines.push(`【話し方】${tone}で話してください。`);
+  if (d.chara) lines.push(`【性格】${d.chara}。ここは崩さないでください。`);
+  if (d["f-serif"]) {
+    lines.push(`【口ぐせ】あなたは「${d["f-serif"].replace(/^[「"']|[」"']$/g, "")}」という言い方をする人です。この一言に表れている距離感・温度で、ずっと話してください。毎回むりに言う必要はありません。`);
+  }
+  if (d["f-like"]) lines.push(`【たとえ話】説明がむずかしくなったときは、${d["f-like"]} にたとえて話してください。`);
+
+  if (d["f-good"] || d["f-bad"]) {
+    lines.push(``);
+    lines.push(`【わたしについて】`);
+    if (d["f-good"]) lines.push(`・得意なこと：${d["f-good"]}`);
+    if (d["f-bad"])  lines.push(`・苦手なこと：${d["f-bad"]}　← ここをあなたが引き受けてください。`);
+  }
+
+  if (d["f-tasks"]) {
+    lines.push(``);
+    lines.push(`【任せたいこと】`);
+    d["f-tasks"].split("\n").map(s => s.trim()).filter(Boolean)
+      .forEach(t => lines.push(`・${t.replace(/^\d+[.、．)]\s*/, "")}`));
+  }
+
+  if (d["f-ng"]) {
+    lines.push(``);
+    lines.push(`【次のことは、しないでください】`);
+    d["f-ng"].split("\n").map(s => s.trim()).filter(Boolean)
+      .forEach(t => lines.push(`・${t.replace(/^\d+[.、．)]\s*/, "")}`));
+  }
+
+  lines.push(``);
+  lines.push(`【守ってほしいこと】`);
+  lines.push(`・わからないことは、わかったふりをせず「わからない」と言ってください。`);
+  lines.push(`・専門用語を使うときは、かならず言いかえを添えてください。`);
+  lines.push(`・返事は短めに。長くなるときは、先に結論を言ってください。`);
+  lines.push(``);
+  lines.push(`ここまで読めたら、${name} として、ひとことあいさつしてください。`);
+
+  return lines.join("\n");
+}
+
+$("make").addEventListener("click", () => {
+  const d = collect();
+  $("outText").textContent = build(d);
+  $("out").dataset.on = "true";
+  save();
+  $("out").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+});
+
+$("copy").addEventListener("click", async () => {
+  const t = $("outText").textContent;
+  // httpで開いたスマホでは navigator.clipboard が使えないので、古い方式（execCommand）を予備にする
+  let ok = false;
+  try { await navigator.clipboard.writeText(t); ok = true; } catch (e) {}
+  if (!ok) {
+    const ta = document.createElement("textarea");
+    ta.value = t; ta.setAttribute("readonly", "");
+    ta.style.cssText = "position:fixed;top:0;left:0;opacity:0;font-size:16px";
+    document.body.appendChild(ta);
+    ta.focus(); ta.select(); ta.setSelectionRange(0, t.length);
+    try { ok = document.execCommand("copy"); } catch (e) {}
+    ta.remove();
+  }
+  if (ok) {
+    $("saved").textContent = "コピーしました。ChatGPTに貼ってください";
+  } else {
+    const r = document.createRange();
+    r.selectNodeContents($("outText"));
+    const s = getSelection();
+    s.removeAllRanges();
+    s.addRange(r);
+    $("saved").textContent = "選択しました。長押しして「コピー」を押してください";
+  }
+  setTimeout(() => $("saved").textContent = "", 4000);
+});
+
+$("print").addEventListener("click", () => window.print());
+
+document.addEventListener("input", save);
+document.addEventListener("change", save);
+restore();
+</script>
+
+</body>
+</html>
